@@ -58,48 +58,11 @@ jobs:
 
       - name: Package RPM using rpmbuild
         run: |
-          PKG_STAGE="/tmp/timecapsule2linux-pkg"
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          
-          # Create SPEC file
-          cat > ~/rpmbuild/SPECS/timecapsule2linux.spec <<EOF
-          Name:           timecapsule2linux
-          Version:        1.0.0
-          Release:        1%{?dist}
-          Summary:        Apple Time Capsule AFP FUSE Mount Client
-          License:        GPLv2
-          URL:            https://github.com/aniva/timecapsule2linux
-          Requires:       libgcrypt, gmp, fuse3, glib2
-          
-          %description
-          Patched afpfs-ng client with FUSE3 support, mount helper script, and systemd service templates.
-          
-          %install
-          mkdir -p %{buildroot}/usr
-          cp -r ${PKG_STAGE}/usr/* %{buildroot}/usr/
-          mkdir -p %{buildroot}/usr/share/timecapsule2linux
-          cp $GITHUB_WORKSPACE/mount-timecapsule.sh.template %{buildroot}/usr/share/timecapsule2linux/mount-timecapsule.sh
-          cp $GITHUB_WORKSPACE/timecapsule.service.template %{buildroot}/usr/share/timecapsule2linux/timecapsule.service
-          
-          %files
-          /usr/bin/afp*
-          /usr/bin/mount_afpfs
-          /usr/lib64/libafpclient.so*
-          /usr/lib64/libafpsl.so*
-          /usr/share/timecapsule2linux/mount-timecapsule.sh
-          /usr/share/timecapsule2linux/timecapsule.service
-          
-          %post
-          /sbin/ldconfig
-          
-          %postun
-          /sbin/ldconfig
-EOF
-          
-          # Clean whitespace from spec file
-          sed -i 's/^[ \t]*//' ~/rpmbuild/SPECS/timecapsule2linux.spec
-          
-          rpmbuild -bb ~/rpmbuild/SPECS/timecapsule2linux.spec
+          rpmbuild -bb \
+            --define "_pkg_stage /tmp/timecapsule2linux-pkg" \
+            --define "_workspace $GITHUB_WORKSPACE" \
+            $GITHUB_WORKSPACE/packaging/timecapsule2linux.spec
           cp ~/rpmbuild/RPMS/x86_64/timecapsule2linux-*.rpm $GITHUB_WORKSPACE/
 
       - name: Upload RPM Artifact
