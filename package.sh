@@ -59,7 +59,7 @@ Section: utils
 Priority: optional
 Architecture: ${ARCH}
 Depends: libgcrypt20, libgmp10, libfuse3-3, libglib2.0-0, fuse3
-Maintainer: ${user.name:-aniva} <${user.email:-ivanovan@gmail.com}>
+Maintainer: aniva <ivanovan@gmail.com>
 Description: Apple Time Capsule AFP FUSE Mount Client
  Package includes a patched afpfs-ng client with FUSE3 support,
  a mount helper script, and a systemd user service template
