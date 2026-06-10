@@ -1,0 +1,16 @@
+[Unit]
+Description=Auto-mount Apple Time Capsule via AFP FUSE
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+# Replace with the absolute path to your configured mount script
+ExecStart=%h/scripts/mount-timecapsule.sh mount
+ExecStop=%h/scripts/mount-timecapsule.sh unmount
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

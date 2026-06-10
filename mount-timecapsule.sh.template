@@ -1,0 +1,58 @@
+#!/bin/bash
+# ==============================================================================
+# mount-timecapsule.sh
+# ==============================================================================
+# Helper script to mount/unmount Apple Time Capsule AFP volumes using FUSE.
+# Configure your settings below.
+# ==============================================================================
+
+# --- CONFIGURATION ---
+TC_IP="192.168.1.6"          # IP address of your Apple Time Capsule
+TC_SHARE="Data"              # Volume/Share name (default is usually 'Data')
+TC_USER="admin"              # Username (default is usually 'admin')
+TC_PASS="muikku"             # Disk / Device password for your Time Capsule
+MOUNT_POINT="$HOME/timecapsule" # Local mount point directory
+# ---------------------
+
+# Ensure mount point directory exists
+mkdir -p "$MOUNT_POINT"
+
+case "$1" in
+    mount)
+        if mountpoint -q "$MOUNT_POINT"; then
+            echo "Time Capsule is already mounted at $MOUNT_POINT."
+        else
+            echo "Mounting Time Capsule (afp://$TC_USER@$TC_IP/$TC_SHARE)..."
+            mount_afpfs "afp://$TC_USER:$TC_PASS@$TC_IP/$TC_SHARE" "$MOUNT_POINT"
+            sleep 1.5
+            if mountpoint -q "$MOUNT_POINT"; then
+                echo "Successfully mounted to $MOUNT_POINT."
+            else
+                echo "Failed to mount Time Capsule. Check logs with 'journalctl --user -n 50'."
+                exit 1
+            fi
+        fi
+        ;;
+    unmount|umount)
+        if mountpoint -q "$MOUNT_POINT"; then
+            echo "Unmounting Time Capsule..."
+            fusermount3 -u "$MOUNT_POINT"
+            echo "Successfully unmounted."
+        else
+            echo "Time Capsule is not mounted."
+        fi
+        ;;
+    status)
+        if mountpoint -q "$MOUNT_POINT"; then
+            echo "Status: Mounted at $MOUNT_POINT"
+            echo "--- Share Contents ---"
+            ls -la "$MOUNT_POINT"
+        else
+            echo "Status: Not mounted"
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {mount|unmount|status}"
+        exit 1
+        ;;
+esac

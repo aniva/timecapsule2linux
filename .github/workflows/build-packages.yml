@@ -1,0 +1,137 @@
+name: Build Packages
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build libgcrypt20-dev libgmp-dev libfuse3-dev libglib2.0-dev pkg-config
+
+      - name: Build Debian Package
+        run: |
+          ./package.sh
+
+      - name: Upload Debian Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-package
+          path: timecapsule2linux_*.deb
+
+  build-rpm:
+    runs-on: ubuntu-latest
+    container: fedora:40
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          dnf install -y gcc gcc-c++ meson ninja-build libgcrypt-devel gmp-devel fuse3-devel glib2-devel pkgconf-pkg-config git rpm-build
+
+      - name: Compile patched afpfs-ng
+        run: |
+          BUILD_DIR="/tmp/afpfs-ng-build"
+          PKG_STAGE="/tmp/timecapsule2linux-pkg"
+          git clone https://github.com/rdmark/afpfs-ng.git "$BUILD_DIR"
+          cd "$BUILD_DIR"
+          git apply "$GITHUB_WORKSPACE/patches/afpfs-ng-wronly-fix.patch"
+          meson setup build --prefix=/usr
+          ninja -C build
+          DESTDIR="$PKG_STAGE" ninja -C build install
+          # Clean up
+          rm -rf "${PKG_STAGE}/usr/include"
+          rm -rf "${PKG_STAGE}/usr/share/man"
+          rm -rf "${PKG_STAGE}/usr/share/doc"
+          rm -rf "${PKG_STAGE}/usr/lib64/pkgconfig" || true
+
+      - name: Package RPM using rpmbuild
+        run: |
+          PKG_STAGE="/tmp/timecapsule2linux-pkg"
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          
+          # Create SPEC file
+          cat > ~/rpmbuild/SPECS/timecapsule2linux.spec <<EOF
+          Name:           timecapsule2linux
+          Version:        1.0.0
+          Release:        1%{?dist}
+          Summary:        Apple Time Capsule AFP FUSE Mount Client
+          License:        GPLv2
+          URL:            https://github.com/aniva/timecapsule2linux
+          Requires:       libgcrypt, gmp, fuse3, glib2
+          
+          %description
+          Patched afpfs-ng client with FUSE3 support, mount helper script, and systemd service templates.
+          
+          %install
+          mkdir -p %{buildroot}/usr
+          cp -r ${PKG_STAGE}/usr/* %{buildroot}/usr/
+          mkdir -p %{buildroot}/usr/share/timecapsule2linux
+          cp $GITHUB_WORKSPACE/mount-timecapsule.sh.template %{buildroot}/usr/share/timecapsule2linux/mount-timecapsule.sh
+          cp $GITHUB_WORKSPACE/timecapsule.service.template %{buildroot}/usr/share/timecapsule2linux/timecapsule.service
+          
+          %files
+          /usr/bin/afp*
+          /usr/bin/mount_afpfs
+          /usr/lib64/libafpclient.so*
+          /usr/lib64/libafpsl.so*
+          /usr/share/timecapsule2linux/mount-timecapsule.sh
+          /usr/share/timecapsule2linux/timecapsule.service
+          
+          %post
+          /sbin/ldconfig
+          
+          %postun
+          /sbin/ldconfig
+EOF
+          
+          # Clean whitespace from spec file
+          sed -i 's/^[ \t]*//' ~/rpmbuild/SPECS/timecapsule2linux.spec
+          
+          rpmbuild -bb ~/rpmbuild/SPECS/timecapsule2linux.spec
+          cp ~/rpmbuild/RPMS/x86_64/timecapsule2linux-*.rpm $GITHUB_WORKSPACE/
+
+      - name: Upload RPM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-package
+          path: timecapsule2linux-*.rpm
+
+  create-release:
+    needs: [build-deb, build-rpm]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download Debian Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: debian-package
+
+      - name: Download RPM Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rpm-package
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            timecapsule2linux_*.deb
+            timecapsule2linux-*.rpm
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
