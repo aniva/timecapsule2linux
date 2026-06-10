@@ -1,5 +1,9 @@
 # timecapsule2linux
 
+<p align="center">
+  <img src="logo.png" alt="timecapsule2linux Logo" width="500">
+</p>
+
 [![Build Packages](https://github.com/aniva/timecapsule2linux/actions/workflows/build-packages.yml/badge.svg)](https://github.com/aniva/timecapsule2linux/actions/workflows/build-packages.yml)
 
 A lightweight, robust client configuration and patched FUSE build to easily mount legacy **Apple Time Capsule** shares on modern Linux distributions (Debian, Ubuntu, Fedora, CentOS, RHEL, etc.).
