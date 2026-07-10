@@ -4,12 +4,11 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=forking
+Type=simple
 # Replace with the absolute path to your configured mount script
-ExecStart=%h/scripts/mount-timecapsule.sh mount
+ExecStart=%h/scripts/mount-timecapsule.sh monitor
 ExecStop=%h/scripts/mount-timecapsule.sh unmount
-RemainAfterExit=yes
-Restart=on-failure
+Restart=always
 RestartSec=10
 
 [Install]

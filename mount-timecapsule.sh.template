@@ -24,13 +24,20 @@ case "$1" in
         else
             echo "Mounting Time Capsule (afp://$TC_USER@$TC_IP/$TC_SHARE)..."
             mount_afpfs "afp://$TC_USER:$TC_PASS@$TC_IP/$TC_SHARE" "$MOUNT_POINT"
-            sleep 1.5
-            if mountpoint -q "$MOUNT_POINT"; then
-                echo "Successfully mounted to $MOUNT_POINT."
-            else
+            # Wait up to 25 seconds for mount to register
+            MOUNTED=false
+            for i in {1..25}; do
+                if mountpoint -q "$MOUNT_POINT"; then
+                    MOUNTED=true
+                    break
+                fi
+                sleep 1
+            done
+            if [ "$MOUNTED" = false ]; then
                 echo "Failed to mount Time Capsule. Check logs with 'journalctl --user -n 50'."
                 exit 1
             fi
+            echo "Successfully mounted to $MOUNT_POINT."
         fi
         ;;
     unmount|umount)
@@ -42,6 +49,38 @@ case "$1" in
             echo "Time Capsule is not mounted."
         fi
         ;;
+    monitor)
+        # Ensure clean mount point first
+        echo "Cleaning up any stale mount at $MOUNT_POINT..."
+        fusermount3 -u "$MOUNT_POINT" 2>/dev/null || true
+
+        echo "Mounting Time Capsule (afp://$TC_USER@$TC_IP/$TC_SHARE)..."
+        mount_afpfs "afp://$TC_USER:$TC_PASS@$TC_IP/$TC_SHARE" "$MOUNT_POINT"
+
+        # Wait up to 25 seconds for mount to register
+        MOUNTED=false
+        for i in {1..25}; do
+            if mountpoint -q "$MOUNT_POINT"; then
+                MOUNTED=true
+                break
+            fi
+            sleep 1
+        done
+
+        if [ "$MOUNTED" = false ]; then
+            echo "Failed to mount Time Capsule."
+            exit 1
+        fi
+        echo "Successfully mounted to $MOUNT_POINT. Monitoring..."
+
+        while true; do
+            if ! mountpoint -q "$MOUNT_POINT"; then
+                echo "Mount point dropped!"
+                exit 1
+            fi
+            sleep 5
+        done
+        ;;
     status)
         if mountpoint -q "$MOUNT_POINT"; then
             echo "Status: Mounted at $MOUNT_POINT"
@@ -52,7 +91,7 @@ case "$1" in
         fi
         ;;
     *)
-        echo "Usage: $0 {mount|unmount|status}"
+        echo "Usage: $0 {mount|unmount|monitor|status}"
         exit 1
         ;;
 esac
