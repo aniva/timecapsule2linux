@@ -46,8 +46,12 @@ git clone https://github.com/rdmark/afpfs-ng.git "$BUILD_DIR"
 echo "[-] Applying O_WRONLY write compatibility patch..."
 cd "$BUILD_DIR"
 if [ -f "$PATCH_FILE" ]; then
-    git apply "$PATCH_FILE"
-    echo "[+] Patch applied successfully."
+    if git apply --check "$PATCH_FILE" >/dev/null 2>&1; then
+        git apply "$PATCH_FILE"
+        echo "[+] Patch applied successfully."
+    else
+        echo "[!] Patch does not apply (it may already be applied upstream). Proceeding."
+    fi
 else
     echo "[!] Patch file not found at $PATCH_FILE. Compiling unpatched version."
 fi
